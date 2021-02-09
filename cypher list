@@ -1,0 +1,10 @@
+
+MATCH (U:User)-[r:MemberOf|:AdminTo*1..]->(C:Computer) WITH U.name as User, COUNT(DISTINCT(C)) as Amount RETURN User,Amount ORDER BY Amount DESC
+
+Match All domain admins and paths to domain admins.
+
+MATCH (n:Group) WHERE n.objectsid =~ "(?i)S-1-5-.*-512" WITH n MATCH p=(n)<-[r:MemberOf*1..]-(m) RETURN m.name;
+
+Match all local admins
+
+MATCH (U:User)-[r:MemberOf|:AdminTo*1..]->(C:Computer) WITH U.name as User, COUNT(DISTINCT(C)) as Amount RETURN User,Amount ORDER BY Amount DESC 
