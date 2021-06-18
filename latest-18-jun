@@ -1,0 +1,45 @@
+//All Users Pwd Set + Enabled
+MATCH (n:User) WHERE n.enabled = TRUE 
+RETURN n.name AS `ACCOUNT NAME`, datetime({epochSeconds: toInteger(n.pwdlastset) }) AS `PWD LAST SET`, datetime({epochSeconds: toInteger(n.lastlogon) }) AS `LAST LOGON`, n.enabled AS `ACCOUNT ENABLED`, n.admincount AS `ADMIN COUNT`, n.pwdneverexpires AS `PWD NEVER EXPIRES`, n.description AS `ACCOUNT DESCRIPTION`
+ORDER BY n.pwdneverexpires DESC
+
+//Find every computer account that has local admin rights on other computers. Return in descending order of the number of computers the computer account has local admin rights to:     
+MATCH (c1:Computer) OPTIONAL MATCH (c1)-[:AdminTo]->(c2:Computer) OPTIONAL MATCH (c1)-[:MemberOf*1..]->(:Group)-[:AdminTo]->(c3:Computer) WITH COLLECT(c2) + COLLECT(c3) AS tempVar,c1 UNWIND tempVar AS computers RETURN c1.name AS COMPUTER,COUNT(DISTINCT(computers)) AS ADMIN_TO_COMPUTERS ORDER BY COUNT(DISTINCT(computers)) DESC
+
+//Find UnConstrained Delegation
+MATCH (c1:Computer)-[:MemberOf*1..]->(g:Group) WHERE g.objectsid ENDS WITH '-516' WITH COLLECT(c1.name) AS domainControllers 
+MATCH (c2:Computer {unconstraineddelegation:true}) WHERE NOT c2.name IN domainControllers AND c2.enabled = true
+RETURN c2.name AS `COMPUTER`,c2.operatingsystem AS `OS`, c2.enabled AS `ENABLED`, c2.description AS `DESCRIPTION`
+ORDER BY c2.name 
+ASC
+
+//Find users with passwords NOT SET within the last 90 days.
+MATCH (u:User) WHERE u.pwdlastset < (datetime().epochseconds - (90 * 86400)) and NOT u.pwdlastset IN [-1.0, 0.0]
+RETURN u.name, u.pwdlastset order by u.pwdlastset
+
+//LAPS Enabled?
+MATCH (C:Computer{enabled:true}) WHERE C.haslaps = false
+RETURN C.name AS `COMPUTER NAME`, C.operatingsystem AS `OS`, C.enabled AS `SYSTEM ENABLED`, C.haslaps AS `LAPS ENABLED`
+ORDER BY C.name
+
+//Legacy OS
+MATCH (H:Computer{enabled:true}) WHERE H.operatingsystem =~ '(?i).*(2000|2003|2008|7|xp|vista|me).*' 
+RETURN H.name AS `COMPUTER NAME`, H.operatingsystem AS `LEGACY OS`, H.enabled AS `ENABLED`, H.description AS `DESCRIPTION`
+ORDER BY H.operatingsystem
+
+//Match LA's -> Group By Users
+MATCH (u:User)-[:AdminTo]-(c:Computer) WHERE u.enabled = TRUE
+RETURN u.name as ACCOUNT, count(distinct(c)) as COMPUTERCOUNT, collect(c.name) as COMPUTERLIST 
+ORDER BY COMPUTERCOUNT DESC
+
+//  Match Priv ASREP
+MATCH (n:User) WHERE n.dontreqpreauth=true AND n.enabled=true 
+RETURN n.name AS `USER`, n.description AS `DESCRIPTION`, n.enabled AS `ENABLED`, n.admincount AS `ADMINCOUNT`, n.dontreqpreauth AS `PRE-AUTH OFF`
+ORDER BY n.admincount
+DESC
+
+//  Match Priv SPN's
+MATCH (n:User) WHERE n.hasspn=true AND n.enabled=true 
+RETURN n.name AS `USER`, n.description AS `DESCRIPTION`, n.enabled AS `ENABLED`, n.admincount AS `ADMINCOUNT`, n.serviceprincipalnames AS `SPN ASSIGNED`
+ORDER BY n.admincount
+DESC
